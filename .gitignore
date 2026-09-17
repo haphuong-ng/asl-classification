@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+
+# uv virtual environment
+.venv/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment variables
+.env
+
+# Dataset
+data/raw/*
+data/processed/*
+
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Model files
+*.h5
+*.keras
+*.ckpt
+*.weights.h5
+
+# Outputs
+outputs/checkpoints/*
+outputs/logs/*
+
+# TensorBoard
+logs/
