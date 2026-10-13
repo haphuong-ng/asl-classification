@@ -1,0 +1,2 @@
+model,run,accuracy,precision_macro,recall_macro,f1_macro,loss
+mini_residual_cnn,2,0.967199981212616,0.9681704452846571,0.9672,0.9672872328715765,0.12429449707269669
