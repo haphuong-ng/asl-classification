@@ -37,4 +37,4 @@ outputs/checkpoints/*
 outputs/logs/*
 
 # TensorBoard
-logs/
+logs/results/**/best_model.keras
