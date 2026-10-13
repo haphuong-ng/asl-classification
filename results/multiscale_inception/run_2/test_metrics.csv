@@ -1,0 +1,2 @@
+model,run,accuracy,precision_macro,recall_macro,f1_macro,loss
+multi_scale_inception,2,0.9947999715805054,0.9949125576811074,0.9948,0.9948031704272237,0.11522301286458969
