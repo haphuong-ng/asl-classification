@@ -14,7 +14,6 @@ from sklearn.metrics import recall_score, f1_score, confusion_matrix
 IMG_SIZE = 224
 BATCH_SIZE = 32
 VAL_RATIO = 0.20
-SPLIT_SEED = 42
 EPOCHS = 100
 
 DATASET_DIR = Path("/kaggle/input/datasets/lexset/synthetic-asl-alphabet")
@@ -38,8 +37,10 @@ for cls in class_names:
     if not test_link.exists():
         os.symlink(TEST_DIR / cls, test_link)
 
-train_ds = tf.keras.utils.image_dataset_from_directory(filtered_train, validation_split=VAL_RATIO, subset="training", seed=SPLIT_SEED, shuffle=True, image_size=(IMG_SIZE, IMG_SIZE), batch_size=BATCH_SIZE, label_mode="int", color_mode="rgb", class_names=class_names, follow_links=True)
-val_ds = tf.keras.utils.image_dataset_from_directory(filtered_train, validation_split=VAL_RATIO, subset="validation", seed=SPLIT_SEED, shuffle=True, image_size=(IMG_SIZE, IMG_SIZE), batch_size=BATCH_SIZE, label_mode="int", color_mode="rgb", class_names=class_names, follow_links=True)
+all_ds = tf.keras.utils.image_dataset_from_directory(filtered_train, shuffle=False, image_size=(IMG_SIZE, IMG_SIZE), batch_size=None, label_mode="int", color_mode="rgb", class_names=class_names, follow_links=True)
+split_every = int(1 / VAL_RATIO)
+train_ds = all_ds.enumerate().filter(lambda index, sample: index % split_every != 0).map(lambda index, sample: sample).shuffle(256).batch(BATCH_SIZE)
+val_ds = all_ds.enumerate().filter(lambda index, sample: index % split_every == 0).map(lambda index, sample: sample).batch(BATCH_SIZE)
 test_ds = tf.keras.utils.image_dataset_from_directory(filtered_test, shuffle=False, image_size=(IMG_SIZE, IMG_SIZE), batch_size=BATCH_SIZE, label_mode="int", color_mode="rgb", class_names=class_names, follow_links=True)
 AUTOTUNE = tf.data.AUTOTUNE
 train_ds = train_ds.prefetch(AUTOTUNE)
@@ -67,12 +68,10 @@ def build_model(learning_rate=1e-3, dropout_rate=0.3):
     model = Model(inputs, outputs, name="resnet50")
     model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate), loss="sparse_categorical_crossentropy", metrics=["accuracy"])
     return model
-# 4. Hyperparameter tuning - Trial 1
 
+# 4. Hyperparameter tuning - Trial 1
 learning_rate = 5e-4
 dropout_rate = 0.3
-tf.keras.backend.clear_session()
-tf.keras.utils.set_random_seed(42)
 model = build_model(learning_rate=learning_rate, dropout_rate=dropout_rate)
 output_dir = Path("/kaggle/working/tuning/trial_1")
 output_dir.mkdir(parents=True, exist_ok=True)
@@ -89,9 +88,6 @@ pd.DataFrame(history.history).to_csv(output_dir / "history.csv", index=False)
 
 # 6. Partial fine-tuning
 RUN_NUMBER = 1
-tf.keras.backend.clear_session()
-if RUN_NUMBER == 1:
-    tf.keras.utils.set_random_seed(42)
 checkpoint = "/kaggle/working/tuning/trial_1/best_model.keras"
 model = tf.keras.models.load_model(checkpoint)
 base_model = model.get_layer("resnet50")
@@ -154,7 +150,7 @@ results.to_csv(comparison_path, index=False)
 
 metrics = {"model": "resnet50_tuned_shared_trial_1", "repeat": RUN_NUMBER, "accuracy": float(test_acc), "precision_macro": float(precision), "recall_macro": float(recall), "f1_macro": float(f1), "loss": float(test_loss), "validation_accuracy_of_checkpoint": float(val_accuracy), "validation_loss_of_checkpoint": float(val_loss)}
 pd.DataFrame([metrics]).to_csv(output_dir_2 / "test_metrics.csv", index=False)
-metadata = {"repeat": RUN_NUMBER, "split_seed": SPLIT_SEED, "validation_ratio": VAL_RATIO, "num_classes": NUM_CLASSES, "class_names": list(class_names), "shared_trial_1_checkpoint": checkpoint, "trial_2_checkpoint": str(output_dir_2 / "best_model.keras"), "learning_rate": 1e-5, "maximum_epochs": 15, "unfreeze_last_backbone_layers": 30, "trainable_backbone_layers": trainable_backbone_layers, "epochs_recorded": len(history_2.history["loss"]), "best_validation_epoch": int(np.argmax(history_2.history["val_accuracy"])) + 1}
+metadata = {"repeat": RUN_NUMBER, "split_method": "every_fifth_sorted_image", "validation_ratio": VAL_RATIO, "num_classes": NUM_CLASSES, "class_names": list(class_names), "shared_trial_1_checkpoint": checkpoint, "trial_2_checkpoint": str(output_dir_2 / "best_model.keras"), "learning_rate": 1e-5, "maximum_epochs": 15, "unfreeze_last_backbone_layers": 30, "trainable_backbone_layers": trainable_backbone_layers, "epochs_recorded": len(history_2.history["loss"]), "best_validation_epoch": int(np.argmax(history_2.history["val_accuracy"])) + 1}
 with open(output_dir_2 / "run_metadata.json", "w") as file:
     json.dump(metadata, file, indent=2)
 
